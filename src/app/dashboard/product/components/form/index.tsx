@@ -4,11 +4,68 @@ import styles from "./styles.module.scss";
 import { ChangeEvent, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/app/dashboard/components/button";
+import { api } from "@/services/api";
+import { headers } from "next/headers";
+import getCookieClient from "@/lib/cookieClient";
+import { error } from "console";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
-export function Form() {
+interface CategoryProps{
+  id:string;
+  name:string
+}
+
+interface Props{
+  categories:CategoryProps[]
+}
+
+export function Form({categories}:Props) {
+
+  const router = useRouter()
 
     const [image,setImage] = useState<File>();
     const [previewImage,setpreviewImage] = useState("");
+
+    async function handleRegisterProduct(formData:FormData){
+      const category = formData.get("category")
+      const name = formData.get("name")
+      const price = formData.get("price")
+      const description = formData.get("description")
+
+      if(!name || !price || !description || !image) {
+        toast.warning("preecha os campos");
+ 
+        return false;
+
+      }
+
+      console.log(name,price,description,category)
+
+      const data = new FormData();
+
+      data.append("name",name);
+      data.append("price",price);
+      data.append("description",description);
+      data.append("category_id",categories[Number(category)].id);
+      data.append("file",image);
+
+      const token = getCookieClient();
+
+      await api.post("/product",data,{
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      }).catch((err) =>{
+        toast.warning("falha");
+      })
+
+      toast.success("Produto Registrado com sucesso");
+      router.push("/dashboard")
+    
+    }
+
+
 
     const handleFile = (e:ChangeEvent<HTMLInputElement>) =>{
         if(e.target.files && e.target.files[0]){
@@ -16,6 +73,7 @@ export function Form() {
 
             if(image.type !== "image/jpeg" && image.type !== "image/png"){
                 console.log("formato Proibido")
+                toast.warning("formato nao permitido")
                 return
             }
 
@@ -31,7 +89,7 @@ export function Form() {
     <main className={styles.container}>
       <h1>Novo Produto</h1>
 
-      <form className={styles.form}>
+      <form className={styles.form} action={handleRegisterProduct}>
         <label className={styles.labelImage}>
           <span>
             <UploadCloud size={24} color="#fff" />
@@ -45,8 +103,12 @@ export function Form() {
         </label>
 
         <select name="category" >
-            <option value="1" key={1}>Pizza</option>
-            <option value="2" key={2}>Pizza</option>
+          {categories.map((category,index) =>(
+          
+          <option value={index} key={category.id}>{category.name}</option>
+
+          ))}
+            
         </select>
 
         <input type="text" name="name" placeholder="Digite o nome do produto" required className={styles.input} />
